@@ -1,0 +1,45 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    uid: loki
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 5000
+      maxDataPoints: 2000
+      timeout: 60
+      httpHeaderName1: 'X-Query-Limit'
+    secureJsonData:
+      httpHeaderValue1: '1000'
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    uid: tempo
+    isDefault: false
+    editable: true
+    jsonData:
+      httpMethod: GET
+      serviceMap:
+        datasourceUid: 'loki'
+      nodeGraph:
+        enabled: true
+      tracesToLogs:
+        datasourceUid: 'loki'
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service_name', value: 'service' }]
+        mapTagNamesEnabled: false
+        spanStartTimeShift: '1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+      lokiSearch:
+        datasourceUid: 'loki'
+      search:
+        maxDuration: '1h'
+      queryTimeout: '30s'
