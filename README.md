@@ -54,27 +54,49 @@ docker compose up -d
   - Product Service: http://localhost:8082/health
   - Order Service: http://localhost:8083/health
 
-## 📊 Dashboards Incluidos
+## 📊 Dashboard Incluido
 
-### 1. E-commerce Logs Dashboard
-- **Logs por servicio** con filtros avanzados
-- **Métricas de errores y warnings** en tiempo real
-- **Correlación de logs** con trace IDs
-- **Eventos de negocio** (registros, logins, órdenes)
+### E-commerce Lab - Dashboard Completo
+Un dashboard integral que combina todas las capacidades de observabilidad en una vista unificada:
 
-### 2. E-commerce Distributed Tracing  
-- **Mapa de dependencias** entre servicios
-- **Métricas de latencia** P95/P99
-- **Búsqueda de trazas** con TraceQL
-- **Análisis de performance** por endpoint
+#### 🏥 Monitoreo de Servicios
+- **Estado de salud** de todos los servicios (user, product, order, traffic-generator)
+- **Indicadores visuales** con códigos de color (🟢 HEALTHY, 🟡 WARNING, 🔴 DOWN)
+- **Conteo de requests** por servicio cada 5 minutos
 
-### 3. E-commerce Business Metrics
-- **KPIs de negocio**: registros, logins, órdenes, pagos
-- **Tasas de éxito** para operaciones críticas
-- **Actividad de productos**: búsquedas, visualizaciones
-- **Stream de eventos** de negocio
+#### 🚨 Análisis de Errores
+- **Top errores y warnings** más frecuentes del sistema
+- **Desglose por servicio** con mensajes detallados
+- **Contadores de incidencias** ordenados por frecuencia
+- **Nivel de severidad** (ERROR/WARNING) con indicadores visuales
 
-> **Nota**: Actualmente se incluye 1 dashboard principal (E-commerce Lab Overview) que integra logs, trazas y métricas de negocio en una vista unificada.
+#### 🚦 Métricas HTTP
+- **Códigos de respuesta HTTP** en tiempo real por servicio
+- **Visualización temporal** de códigos 2xx (verde), 4xx (naranja), 5xx (rojo)
+- **Tasas de respuesta** apiladas para análisis de patrones
+
+#### 💼 Eventos de Negocio
+- **Métricas en tiempo real**: Logins, Registros, Órdenes, Pagos
+- **Gráficos temporales** con colores diferenciados por tipo de evento
+- **Stream de eventos** con trace IDs para correlación
+- **Estadísticas** de último valor y máximo por métrica
+
+#### 🐌 Análisis de Performance
+- **Traces más lentas** del sistema (>100ms)
+- **Tabla detallada** con duración y contexto de cada trace
+- **Integración directa** con Tempo para análisis profundo
+
+#### 📜 Logs en Tiempo Real
+- **Stream unificado** de todos los servicios
+- **Filtros dinámicos** por servicio usando variables de dashboard
+- **Vista detallada** de logs con timestamps
+- **Correlación automática** con trace context
+
+#### ⚙️ Características Técnicas
+- **Auto-refresh** cada 5 segundos
+- **Variables de dashboard** para filtrado dinámico
+- **Ventana temporal** configurable (por defecto: últimos 15 minutos)
+- **Integración nativa** con Loki (logs) y Tempo (traces)
 
 ## 🔄 Flujos Automáticos
 
@@ -141,32 +163,34 @@ make restore         # Restaurar desde backup
 
 ### 1. Análisis de Errores
 ```bash
-# Ver errores en tiempo real
+# Ver errores en tiempo real por línea de comandos
 make logs-service SERVICE=user-service | grep ERROR
 
-# En Grafana: usar dashboard "E-commerce Logs"
-# - Filtrar por servicio y nivel de error
-# - Ver correlación con trace IDs
-# - Analizar patrones temporales
+# En Grafana dashboard "E-commerce Lab - Dashboard Completo":
+# - Revisar panel "Top Errores y Warnings del Sistema"
+# - Filtrar por servicio en panel "Estado de Servicios E-commerce"
+# - Ver correlación con trace IDs en "Stream de Eventos de Negocio"
+# - Analizar códigos HTTP en panel "Códigos de Respuesta HTTP"
 ```
 
-### 2. Trazas Distribuidas
+### 2. Análisis de Trazas Distribuidas
 ```bash
-# Buscar trazas específicas en Grafana "E-commerce Distributed Tracing"
-# TraceQL queries útiles:
+# En el dashboard "E-commerce Lab - Dashboard Completo":
+# - Revisar sección "Traces Más Lentas" para identificar cuellos de botella
+# - Hacer clic en cualquier trace para análisis detallado en Tempo
+# - TraceQL queries útiles en Tempo:
 {service.name="order-service"} && {span.name="create_order"}
 {service.name="user-service"} && duration > 500ms
 {error=true}
 ```
 
-### 3. Métricas de Negocio
+### 3. Monitoreo de Métricas de Negocio
 ```bash
-# Dashboard "E-commerce Business Metrics"
-# Monitorear:
-# - Tasa de conversión (órdenes/visitas)
-# - Éxito de pagos
-# - Actividad de productos más populares
-# - Patrones de registro de usuarios
+# En sección "Métricas de Negocio - Eventos por Minuto":
+# - Monitorear tasa de logins y registros de usuarios
+# - Seguimiento de órdenes creadas por minuto
+# - Análisis de pagos procesados
+# - Stream de eventos en tiempo real con trace IDs para correlación
 ```
 
 ### 4. Alertas y SLAs
@@ -187,10 +211,10 @@ monitoring-stack/
 │   └── traffic-generator/            # Generador de tráfico
 ├── infrastructure/                    # Stack de observabilidad
 │   ├── grafana/
-│   │   ├── dashboards/               # Dashboard principal integrado
-│   │   └── provisioning/             # Datasources automáticos
-│   ├── loki/                         # Configuración de logs
-│   └── tempo/                        # Configuración de trazas
+│   │   ├── dashboards/               # E-commerce Lab Dashboard completo
+│   │   └── provisioning/             # Datasources automáticos (Loki + Tempo)
+│   ├── loki/                         # Configuración de agregación de logs
+│   └── tempo/                        # Configuración de trazas distribuidas
 ├── docker-compose.yml                # Orquestación completa
 ├── Makefile                          # Comandos de gestión
 └── README.md                         # Esta documentación

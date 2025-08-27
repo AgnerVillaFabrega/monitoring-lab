@@ -33,10 +33,8 @@ up: ## Start all services
 	@echo "  Product Service: http://localhost:8082/health"  
 	@echo "  Order Service: http://localhost:8083/health"
 	@echo ""
-	@echo "📊 Dashboards will be available at:"
-	@echo "  - E-commerce Logs"
-	@echo "  - E-commerce Distributed Tracing"
-	@echo "  - E-commerce Business Metrics"
+	@echo "📊 Dashboard disponible:"
+	@echo "  - E-commerce Lab - Dashboard Completo (vista unificada)"
 
 down: ## Stop all services
 	@echo "🛑 Stopping all services..."
