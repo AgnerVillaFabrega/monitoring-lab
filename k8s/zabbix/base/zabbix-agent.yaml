@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zabbix-agent-config
+  namespace: monitoring
+data:
+  ZBX_SERVER_HOST: zabbix-server.monitoring.svc.cluster.local
+  ZBX_SERVER_PORT: "10051"
+  ZBX_PASSIVE_ALLOW: "true"
+  ZBX_ACTIVE_ALLOW: "true"
+  ZBX_LOADMODULE: ""
+  ZBX_DEBUGLEVEL: "3"
+  ZBX_TIMEOUT: "30"
+  ZBX_ENABLEREMOTECOMMANDS: "1"
+  ZBX_LOGREMOTECOMMANDS: "1"
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: zabbix-agent
+  namespace: monitoring
+  labels:
+    app: zabbix-agent
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-agent
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: zabbix-agent
+        image: zabbix/zabbix-agent2:6.4-alpine-latest
+        env:
+        - name: ZBX_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ZBX_SERVER_HOST
+          value: zabbix-server.monitoring.svc.cluster.local
+        - name: ZBX_SERVER_PORT
+          value: "10051"
+        - name: ZBX_PASSIVE_ALLOW
+          value: "true"
+        - name: ZBX_ACTIVE_ALLOW  
+          value: "true"
+        - name: ZBX_ENABLEREMOTECOMMANDS
+          value: "1"
+        ports:
+        - containerPort: 10050
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: dev
+          mountPath: /host/dev
+          readOnly: true
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+          readOnly: true
+        - name: etc
+          mountPath: /host/etc
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        securityContext:
+          privileged: true
+          runAsUser: 0
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: dev
+        hostPath:
+          path: /dev
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+      - name: etc
+        hostPath:
+          path: /etc
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute

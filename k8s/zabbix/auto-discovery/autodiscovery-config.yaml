@@ -1,0 +1,234 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zabbix-autodiscovery
+  namespace: monitoring
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zabbix-autodiscovery
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zabbix-autodiscovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zabbix-autodiscovery
+subjects:
+- kind: ServiceAccount
+  name: zabbix-autodiscovery
+  namespace: monitoring
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: autodiscovery-script
+  namespace: monitoring
+data:
+  autodiscovery.py: |
+    #!/usr/bin/env python3
+    import json
+    import requests
+    import time
+    import logging
+    from kubernetes import client, config
+    from pyzabbix import ZabbixAPI
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Configuración
+    ZABBIX_SERVER = "http://zabbix-web.monitoring.svc.cluster.local"
+    ZABBIX_USER = "Admin"
+    ZABBIX_PASSWORD = "zabbix"
+    
+    def get_k8s_nodes():
+        """Obtiene todos los nodos del cluster"""
+        try:
+            config.load_incluster_config()
+            v1 = client.CoreV1Api()
+            nodes = v1.list_node()
+            
+            node_list = []
+            for node in nodes.items:
+                node_info = {
+                    'name': node.metadata.name,
+                    'ip': node.status.addresses[0].address,  # Internal IP
+                    'labels': node.metadata.labels,
+                    'capacity': node.status.capacity,
+                    'allocatable': node.status.allocatable
+                }
+                node_list.append(node_info)
+                
+            return node_list
+        except Exception as e:
+            logger.error(f"Error getting K8s nodes: {e}")
+            return []
+
+    def connect_zabbix():
+        """Conecta a Zabbix API"""
+        try:
+            zapi = ZabbixAPI(ZABBIX_SERVER)
+            zapi.login(ZABBIX_USER, ZABBIX_PASSWORD)
+            return zapi
+        except Exception as e:
+            logger.error(f"Error connecting to Zabbix: {e}")
+            return None
+
+    def create_host_group(zapi, group_name):
+        """Crea grupo de hosts si no existe"""
+        try:
+            existing = zapi.hostgroup.get(filter={"name": group_name})
+            if existing:
+                return existing[0]['groupid']
+            
+            result = zapi.hostgroup.create(name=group_name)
+            return result['groupids'][0]
+        except Exception as e:
+            logger.error(f"Error creating host group: {e}")
+            return None
+
+    def create_or_update_host(zapi, node_info, groupid):
+        """Crea o actualiza host en Zabbix"""
+        try:
+            hostname = node_info['name']
+            ip = node_info['ip']
+            
+            # Buscar host existente
+            existing_host = zapi.host.get(filter={"host": hostname})
+            
+            host_data = {
+                "host": hostname,
+                "name": f"K8s Node - {hostname}",
+                "interfaces": [
+                    {
+                        "type": 1,  # Agent interface
+                        "main": 1,
+                        "useip": 1,
+                        "ip": ip,
+                        "dns": "",
+                        "port": "10050"
+                    }
+                ],
+                "groups": [{"groupid": groupid}],
+                "templates": [{"templateid": "10001"}],  # Linux by Zabbix agent
+                "macros": [
+                    {"macro": "{$NODE_IP}", "value": ip},
+                    {"macro": "{$NODE_NAME}", "value": hostname}
+                ]
+            }
+            
+            if existing_host:
+                host_data["hostid"] = existing_host[0]['hostid']
+                result = zapi.host.update(host_data)
+                logger.info(f"Updated host: {hostname}")
+            else:
+                result = zapi.host.create(host_data)
+                logger.info(f"Created host: {hostname}")
+                
+            return result
+        except Exception as e:
+            logger.error(f"Error creating/updating host {node_info['name']}: {e}")
+            return None
+
+    def main():
+        """Función principal de auto-discovery"""
+        logger.info("Starting Zabbix auto-discovery...")
+        
+        while True:
+            try:
+                # Obtener nodos de K8s
+                nodes = get_k8s_nodes()
+                if not nodes:
+                    logger.warning("No nodes found")
+                    time.sleep(300)
+                    continue
+                
+                # Conectar a Zabbix
+                zapi = connect_zabbix()
+                if not zapi:
+                    logger.error("Cannot connect to Zabbix")
+                    time.sleep(300)
+                    continue
+                
+                # Crear grupo de hosts
+                groupid = create_host_group(zapi, "Kubernetes Nodes")
+                if not groupid:
+                    logger.error("Cannot create host group")
+                    time.sleep(300)
+                    continue
+                
+                # Procesar cada nodo
+                for node in nodes:
+                    create_or_update_host(zapi, node, groupid)
+                
+                logger.info(f"Processed {len(nodes)} nodes")
+                
+            except Exception as e:
+                logger.error(f"Error in main loop: {e}")
+            
+            # Esperar 5 minutos antes de la siguiente ejecución
+            time.sleep(300)
+
+    if __name__ == "__main__":
+        main()
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-autodiscovery
+  namespace: monitoring
+  labels:
+    app: zabbix-autodiscovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zabbix-autodiscovery
+  template:
+    metadata:
+      labels:
+        app: zabbix-autodiscovery
+    spec:
+      serviceAccountName: zabbix-autodiscovery
+      containers:
+      - name: autodiscovery
+        image: python:3.9-slim
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          pip install kubernetes pyzabbix requests &&
+          python /scripts/autodiscovery.py
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: script
+        configMap:
+          name: autodiscovery-script

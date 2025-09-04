@@ -1,0 +1,306 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parquet-exporter-config
+  namespace: monitoring
+data:
+  exporter.py: |
+    #!/usr/bin/env python3
+    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    import psycopg2
+    import json
+    import os
+    import time
+    import logging
+    from datetime import datetime, timedelta
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Configuración
+    DB_CONFIG = {
+        'host': 'postgres.monitoring.svc.cluster.local',
+        'database': 'zabbix',
+        'user': 'zabbix',
+        'password': 'zabbix123',
+        'port': 5432
+    }
+
+    NFS_PATH = '/nfs-export'
+    EXPORT_INTERVAL = 3600  # 1 hora
+
+    def get_db_connection():
+        """Establece conexión con PostgreSQL"""
+        try:
+            conn = psycopg2.connect(**DB_CONFIG)
+            return conn
+        except Exception as e:
+            logger.error(f"Error connecting to database: {e}")
+            return None
+
+    def export_history_data(conn, start_time, end_time):
+        """Exporta datos históricos a Parquet"""
+        try:
+            query = """
+            SELECT 
+                h.itemid,
+                i.name as item_name,
+                ht.host,
+                h.clock as timestamp,
+                h.value,
+                h.ns
+            FROM history h
+            JOIN items i ON h.itemid = i.itemid
+            JOIN hosts ht ON i.hostid = ht.hostid
+            WHERE h.clock BETWEEN %s AND %s
+            ORDER BY h.clock
+            """
+            
+            df = pd.read_sql_query(query, conn, params=[start_time, end_time])
+            
+            if not df.empty:
+                # Convertir timestamp a datetime
+                df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+                
+                # Crear partición por fecha
+                date_str = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d')
+                filename = f"{NFS_PATH}/zabbix-history-{date_str}.parquet"
+                
+                # Escribir a Parquet con compresión
+                df.to_parquet(
+                    filename,
+                    compression='snappy',
+                    index=False,
+                    partition_cols=['host']
+                )
+                
+                logger.info(f"Exported {len(df)} records to {filename}")
+                return True
+            else:
+                logger.info("No data to export")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error exporting history data: {e}")
+            return False
+
+    def export_trends_data(conn, start_time, end_time):
+        """Exporta datos de tendencias a Parquet"""
+        try:
+            query = """
+            SELECT 
+                t.itemid,
+                i.name as item_name,
+                h.host,
+                t.clock as timestamp,
+                t.num,
+                t.value_min,
+                t.value_avg,
+                t.value_max
+            FROM trends t
+            JOIN items i ON t.itemid = i.itemid
+            JOIN hosts h ON i.hostid = h.hostid
+            WHERE t.clock BETWEEN %s AND %s
+            ORDER BY t.clock
+            """
+            
+            df = pd.read_sql_query(query, conn, params=[start_time, end_time])
+            
+            if not df.empty:
+                # Convertir timestamp a datetime
+                df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+                
+                # Crear partición por fecha
+                date_str = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d')
+                filename = f"{NFS_PATH}/zabbix-trends-{date_str}.parquet"
+                
+                # Escribir a Parquet
+                df.to_parquet(
+                    filename,
+                    compression='snappy',
+                    index=False
+                )
+                
+                logger.info(f"Exported {len(df)} trend records to {filename}")
+                return True
+            else:
+                logger.info("No trend data to export")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error exporting trends data: {e}")
+            return False
+
+    def export_events_data(conn, start_time, end_time):
+        """Exporta eventos y alertas a Parquet"""
+        try:
+            query = """
+            SELECT 
+                e.eventid,
+                e.source,
+                e.object,
+                e.objectid,
+                e.clock as timestamp,
+                e.value,
+                e.acknowledged,
+                e.name,
+                h.host,
+                t.description as trigger_description
+            FROM events e
+            LEFT JOIN triggers t ON e.objectid = t.triggerid
+            LEFT JOIN functions f ON t.triggerid = f.triggerid
+            LEFT JOIN items i ON f.itemid = i.itemid
+            LEFT JOIN hosts h ON i.hostid = h.hostid
+            WHERE e.clock BETWEEN %s AND %s
+            AND e.source = 0  -- Trigger events
+            ORDER BY e.clock
+            """
+            
+            df = pd.read_sql_query(query, conn, params=[start_time, end_time])
+            
+            if not df.empty:
+                # Convertir timestamp a datetime
+                df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+                
+                # Crear partición por fecha
+                date_str = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d')
+                filename = f"{NFS_PATH}/zabbix-events-{date_str}.parquet"
+                
+                # Escribir a Parquet
+                df.to_parquet(
+                    filename,
+                    compression='snappy',
+                    index=False
+                )
+                
+                logger.info(f"Exported {len(df)} events to {filename}")
+                return True
+            else:
+                logger.info("No events to export")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error exporting events data: {e}")
+            return False
+
+    def cleanup_old_data(conn, days_to_keep=30):
+        """Limpia datos antiguos de la base de datos"""
+        try:
+            cutoff_time = int((datetime.now() - timedelta(days=days_to_keep)).timestamp())
+            
+            queries = [
+                f"DELETE FROM history WHERE clock < {cutoff_time}",
+                f"DELETE FROM history_uint WHERE clock < {cutoff_time}",
+                f"DELETE FROM history_str WHERE clock < {cutoff_time}",
+                f"DELETE FROM history_text WHERE clock < {cutoff_time}",
+                f"DELETE FROM history_log WHERE clock < {cutoff_time}"
+            ]
+            
+            cursor = conn.cursor()
+            for query in queries:
+                cursor.execute(query)
+                logger.info(f"Executed: {query}")
+            
+            conn.commit()
+            cursor.close()
+            logger.info("Database cleanup completed")
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+            conn.rollback()
+
+    def main():
+        """Función principal del exportador"""
+        logger.info("Starting Parquet exporter...")
+        
+        # Crear directorio NFS si no existe
+        os.makedirs(NFS_PATH, exist_ok=True)
+        
+        while True:
+            try:
+                # Obtener conexión a la base de datos
+                conn = get_db_connection()
+                if not conn:
+                    logger.error("Cannot connect to database")
+                    time.sleep(300)
+                    continue
+                
+                # Definir rango de tiempo (última hora)
+                end_time = int(datetime.now().timestamp())
+                start_time = end_time - EXPORT_INTERVAL
+                
+                # Exportar datos
+                export_history_data(conn, start_time, end_time)
+                export_trends_data(conn, start_time, end_time)
+                export_events_data(conn, start_time, end_time)
+                
+                # Limpieza semanal (ejecutar una vez por día)
+                current_hour = datetime.now().hour
+                if current_hour == 2:  # 2 AM
+                    cleanup_old_data(conn, days_to_keep=30)
+                
+                conn.close()
+                logger.info(f"Export cycle completed, sleeping for {EXPORT_INTERVAL} seconds")
+                
+            except Exception as e:
+                logger.error(f"Error in main loop: {e}")
+            
+            time.sleep(EXPORT_INTERVAL)
+
+    if __name__ == "__main__":
+        main()
+
+# PV y PVC definidos en nfs-pv.yaml
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parquet-exporter
+  namespace: monitoring
+  labels:
+    app: parquet-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: parquet-exporter
+  template:
+    metadata:
+      labels:
+        app: parquet-exporter
+    spec:
+      containers:
+      - name: exporter
+        image: python:3.9-slim
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          pip install pandas pyarrow psycopg2-binary &&
+          python /scripts/exporter.py
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+        - name: nfs-storage
+          mountPath: /nfs-export
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+      volumes:
+      - name: script
+        configMap:
+          name: parquet-exporter-config
+      - name: nfs-storage
+        persistentVolumeClaim:
+          claimName: nfs-parquet-pvc
