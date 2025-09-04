@@ -73,7 +73,7 @@ func init() {
 func setupTracing() (*trace.TracerProvider, error) {
 	tempoEndpoint := os.Getenv("TEMPO_ENDPOINT")
 	if tempoEndpoint == "" {
-		tempoEndpoint = "http://tempo:4318/v1/traces"
+		tempoEndpoint = "http://tempo:4318"
 	}
 
 	exporter, err := otlptracehttp.New(

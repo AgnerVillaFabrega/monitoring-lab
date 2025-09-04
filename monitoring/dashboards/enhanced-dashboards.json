@@ -1,0 +1,309 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "🚀 Enhanced Application Monitoring",
+    "tags": ["enhanced", "applications", "traces"],
+    "timezone": "browser",
+    "refresh": "5s",
+    "time": {
+      "from": "now-15m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "📊 Request Rate Comparison",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=\"app1\"}[5m]))",
+            "legendFormat": "App1 RPS",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"app2\"}[5m]))",
+            "legendFormat": "App2 RPS", 
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "mappings": [],
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 50}
+              ]
+            },
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "⏱️ Response Time P95",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95 Latency",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 0.5}
+              ]
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "🚨 Error Rate %",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "🔄 HTTP Status Codes Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status_code=\"200\"}[5m])) by (job)",
+            "legendFormat": "{{job}} - 2xx Success",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{status_code=~\"4..\"}[5m])) by (job)",
+            "legendFormat": "{{job}} - 4xx Client Error",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m])) by (job)",
+            "legendFormat": "{{job}} - 5xx Server Error",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [{"label": "Requests/sec", "unit": "reqps"}],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "⚡ Response Time Distribution",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50 Median",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [{"label": "Response Time", "unit": "s"}],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "🔥 Business Metrics - App1",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "app1_business_metric{type=\"cpu_usage\"}",
+            "legendFormat": "CPU Usage",
+            "refId": "A"
+          },
+          {
+            "expr": "app1_business_metric{type=\"memory_usage\"}",
+            "legendFormat": "Memory Usage",
+            "refId": "B"
+          },
+          {
+            "expr": "app1_business_metric{type=\"active_connections\"}",
+            "legendFormat": "Active Connections",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [{"label": "Value"}],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "🐍 Business Metrics - App2",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "app2_business_metric",
+            "legendFormat": "App2 Business Metric",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(app2_errors_total[5m])",
+            "legendFormat": "Error Rate",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [{"label": "Value"}],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "🖥️ Node CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}} CPU %",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [{"label": "CPU Usage %", "max": 100, "min": 0, "unit": "percent"}],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "💾 Node Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
+            "legendFormat": "Memory Usage %",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [{"label": "Memory Usage %", "max": 100, "min": 0, "unit": "percent"}],
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "🌐 Network Traffic",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "RX {{device}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "TX {{device}}",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [{"label": "Bytes/sec", "unit": "Bps"}],
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 24}
+      },
+      {
+        "id": 11,
+        "title": "🏗️ Kubernetes Pods Status",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(kube_pod_status_phase{phase=\"Running\"}) by (namespace)",
+            "legendFormat": "Running - {{namespace}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(kube_pod_status_phase{phase=\"Pending\"}) by (namespace)",
+            "legendFormat": "Pending - {{namespace}}",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(kube_pod_status_phase{phase=\"Failed\"}) by (namespace)",
+            "legendFormat": "Failed - {{namespace}}",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [{"label": "Pod Count"}],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+      },
+      {
+        "id": 12,
+        "title": "📈 Traces Activity (App2 Working)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(tempo_ingester_traces_received_total[5m])",
+            "legendFormat": "Traces Received (5m)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "green", "value": 10}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "enable": true,
+          "iconColor": "blue",
+          "query": "up == 0"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "job",
+          "type": "query",
+          "query": "label_values(up, job)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true
+        }
+      ]
+    }
+  }
+}
