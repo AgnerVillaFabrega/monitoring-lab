@@ -1,282 +1,266 @@
-# E-commerce Monitoring Stack
+# Laboratorio de Monitoreo Centralizado
 
-Un stack completo de monitoreo y observabilidad para microservicios de e-commerce, construido con **Grafana**, **Loki**, **Tempo** y servicios en **Go** con trazas distribuidas automáticas.
+Este proyecto implementa un stack completo de observabilidad centralizada simulando un entorno multi-cluster con Kubernetes en Docker Desktop.
 
 ## 🏗️ Arquitectura
 
-### Microservicios E-commerce
-- **user-service** (puerto 8081) - Autenticación y gestión de usuarios
-- **product-service** (puerto 8082) - Catálogo de productos e inventario  
-- **order-service** (puerto 8083) - Procesamiento de órdenes y pagos
-- **traffic-generator** - Genera tráfico automático realista
+### Stack Central de Monitoreo (Namespace `monitoring`)
+- **Grafana**: Visualización y dashboards
+- **Prometheus**: Recolección y almacenamiento de métricas
+- **Alertmanager**: Gestión de alertas
+- **Loki**: Agregación de logs
+- **Tempo**: Distributed tracing
 
-### Stack de Observabilidad
-- **Grafana** (puerto 3000) - Dashboards y visualización
-- **Loki** (puerto 3100) - Agregación y consulta de logs
-- **Tempo** (puerto 3200) - Almacenamiento de trazas distribuidas
-- **Promtail** (integrado) - Recolección de logs desde contenedores Docker
+### Aplicaciones de Ejemplo
+- **App1 (Go)**: API con métricas Prometheus y trazas OpenTelemetry
+- **App2 (Python FastAPI)**: API con observabilidad completa
+
+### Clusters Simulados
+- **Cluster1** (namespace `app1`): Infraestructura para App1
+- **Cluster2** (namespace `app2`): Infraestructura para App2
+
+Cada cluster incluye:
+- **kube-state-metrics**: Estado de objetos Kubernetes
+- **node-exporter**: Métricas de sistema
+- **Prometheus Agent**: Recolección y envío al Prometheus central
+- **Fluent Bit**: Recolección y envío de logs a Loki
 
 ## 🚀 Inicio Rápido
 
 ### Prerrequisitos
-- Docker y Docker Compose
-- Make (opcional pero recomendado)
-- 8GB RAM disponibles
-- Puertos 3000, 3100, 3200, 8081-8083 libres
+- Docker Desktop con Kubernetes habilitado
+- kubectl configurado
+- make (opcional, pero recomendado)
+- Git
 
-### 1. Clonar e Instalar
+### Despliegue Completo (Método Recomendado)
 ```bash
-git clone <repository-url>
-cd monitoring-stack
+# Ver todos los comandos disponibles
+make help
 
-# Instalar herramientas requeridas (si no las tienes)
-make install-tools
+# Despliegue completo con logging automático
+make deploy
 
-# Descargar dependencias Go
-make deps
+# Verificar estado
+make status
 ```
 
-### 2. Levantar el Stack Completo
+### Despliegue por Componentes
 ```bash
-# Opción 1: Usando Makefile (recomendado)
-make up
+# Limpiar recursos existentes
+make clean
 
-# Opción 2: Docker Compose directo
-docker compose up -d
+# Solo stack de monitoreo
+make monitoring
+
+# Solo aplicaciones
+make apps
+
+# Solo infraestructura de clusters
+make clusters
+
+# Despliegue rápido sin logging extenso
+make quick-deploy
 ```
 
-### 3. Acceder a los Servicios
-- **Grafana**: http://localhost:3000
-  - Usuario: `admin` 
-  - Contraseña: `admin123`
-- **Servicios**: 
-  - User Service: http://localhost:8081/health
-  - Product Service: http://localhost:8082/health
-  - Order Service: http://localhost:8083/health
+## 📊 Accesos
 
-## 📊 Dashboard Incluido
+Una vez desplegado, podrás acceder a:
 
-### E-commerce Lab - Dashboard Completo
-Un dashboard integral que combina todas las capacidades de observabilidad en una vista unificada:
+- **Grafana**: http://localhost:30000 (admin/admin)
+- **Prometheus**: http://localhost:30090
+- **Alertmanager**: http://localhost:30093
+- **Tempo**: http://localhost:30200
+- **Prometheus Agent Cluster1**: http://localhost:30091
+- **Prometheus Agent Cluster2**: http://localhost:30092
 
-#### 🏥 Monitoreo de Servicios
-- **Estado de salud** de todos los servicios (user, product, order, traffic-generator)
-- **Indicadores visuales** con códigos de color (🟢 HEALTHY, 🟡 WARNING, 🔴 DOWN)
-- **Conteo de requests** por servicio cada 5 minutos
+## 📈 Dashboards Incluidos
 
-#### 🚨 Análisis de Errores
-- **Top errores y warnings** más frecuentes del sistema
-- **Desglose por servicio** con mensajes detallados
-- **Contadores de incidencias** ordenados por frecuencia
-- **Nivel de severidad** (ERROR/WARNING) con indicadores visuales
+1. **Cluster Overview**: Métricas de nodos y estado del cluster
+2. **Application Overview**: Métricas de negocio y rendimiento de apps
+3. **Logs Explorer**: Búsqueda y análisis de logs
+4. **Traces Explorer**: Visualización de trazas distribuidas
+5. **Alerts Overview**: Estado y detalles de alertas
 
-#### 🚦 Métricas HTTP
-- **Códigos de respuesta HTTP** en tiempo real por servicio
-- **Visualización temporal** de códigos 2xx (verde), 4xx (naranja), 5xx (rojo)
-- **Tasas de respuesta** apiladas para análisis de patrones
+## 🔧 Configuración
 
-#### 💼 Eventos de Negocio
-- **Métricas en tiempo real**: Logins, Registros, Órdenes, Pagos
-- **Gráficos temporales** con colores diferenciados por tipo de evento
-- **Stream de eventos** con trace IDs para correlación
-- **Estadísticas** de último valor y máximo por métrica
+### Generación de Tráfico Automático
 
-#### 🐌 Análisis de Performance
-- **Traces más lentas** del sistema (>100ms)
-- **Tabla detallada** con duración y contexto de cada trace
-- **Integración directa** con Tempo para análisis profundo
+Las aplicaciones incluyen generadores de tráfico automático que:
+- Crean requests HTTP periódicos
+- Generan errores simulados (10-15%)
+- Producen logs estructurados en JSON
+- Crean trazas distribuidas
+- Simulan ráfagas de tráfico
 
-#### 📜 Logs en Tiempo Real
-- **Stream unificado** de todos los servicios
-- **Filtros dinámicos** por servicio usando variables de dashboard
-- **Vista detallada** de logs con timestamps
-- **Correlación automática** con trace context
+### Métricas Personalizadas
 
-#### ⚙️ Características Técnicas
-- **Auto-refresh** cada 5 segundos
-- **Variables de dashboard** para filtrado dinámico
-- **Ventana temporal** configurable (por defecto: últimos 15 minutos)
-- **Integración nativa** con Loki (logs) y Tempo (traces)
+**App1 (Go)**:
+- `http_requests_total`: Contador de requests HTTP
+- `http_request_duration_seconds`: Latencia de requests
+- `app1_business_metric`: Métricas de negocio
+- `app1_errors_total`: Contador de errores
 
-## 🔄 Flujos Automáticos
+**App2 (Python)**:
+- `http_requests_total`: Contador de requests HTTP
+- `http_request_duration_seconds`: Latencia de requests
+- `app2_business_metric`: Métricas de negocio
+- `app2_errors_total`: Contador de errores
 
-El **traffic-generator** simula usuarios reales con patrones de tráfico avanzados:
+### Logs Estructurados
 
-### Flujos Automáticos Incluidos
-- **User flows**: Registro, login, perfiles, favoritos
-- **Product flows**: Navegación, búsquedas, consultas de inventario  
-- **Order flows**: Creación de órdenes completas con pago
-- **Advanced flows**: Preferencias, productos trending, reembolsos, analytics
+Todas las aplicaciones producen logs en formato JSON con:
+```json
+{
+  \"timestamp\": \"2023-XX-XXTXX:XX:XX\",
+  \"level\": \"info|warn|error\",
+  \"service\": \"app1|app2\",
+  \"message\": \"Mensaje descriptivo\",
+  \"trace_id\": \"ID de la traza\"
+}
+```
 
-### Patrones de Tráfico Realistas
+## 🔍 Verificación
 
-### Flujos de Usuario (cada 5s)
-- Login con credenciales existentes
-- Registro de nuevos usuarios  
-- Consulta de perfiles y favoritos
+### Verificar Despliegue
+```bash
+# Usando Makefile (recomendado)
+make status          # Estado básico
+make check          # Verificación completa con conectividad
 
-### Flujos de Producto (cada 4s)
-- Navegación de catálogo completo
-- Búsquedas por término y categoría
-- Consulta de inventario y detalles
+# Manualmente
+kubectl get pods -n monitoring
+kubectl get pods -n app1
+kubectl get pods -n app2
+```
 
-### Flujos de Órdenes (cada 10s)
-- **Flujo completo**: crear orden → procesar pago → actualizar estado
-- Consulta de órdenes por usuario
-- Administración de órdenes
+### Verificar Métricas
+```bash
+# Verificar endpoints de métricas
+kubectl port-forward -n app1 service/app1-service 8080:8080
+curl http://localhost:8080/metrics
 
-### Comunicación Inter-Servicios
-Todos los servicios están instrumentados con **OpenTelemetry** para trazabilidad completa:
-- **order-service** → **user-service** (validar usuario en cada orden)
-- **order-service** → **product-service** (reservar inventario)
-- **user-service** → **product-service** (obtener favoritos del usuario)
-- **traffic-generator** → **todos los servicios** (simula tráfico realista)
+kubectl port-forward -n app2 service/app2-service 8000:8000
+curl http://localhost:8000/metrics
+```
 
-Cada request HTTP incluye **trace context propagation** automática.
+### Verificar Logs
+```bash
+# Ver logs de las aplicaciones
+kubectl logs -f -n app1 -l app=app1
+kubectl logs -f -n app2 -l app=app2
 
-## 🛠️ Comandos Make Útiles
+# Ver logs de despliegue
+make logs
+```
+
+## 🧹 Limpieza
 
 ```bash
-# Gestión básica
-make up              # Iniciar todos los servicios
-make down            # Detener todos los servicios  
-make restart         # Reiniciar servicios
-make status          # Ver estado de contenedores
+# Usando Makefile (recomendado)
+make clean
 
-# Monitoreo y debug
-make logs            # Ver todos los logs
-make health          # Verificar salud de servicios
-make test-endpoints  # Probar endpoints de API
-
-# Desarrollo
-make build           # Construir imágenes
-make tidy            # Actualizar go.mod de servicios
-make dev             # Modo desarrollo (rebuild)
-
-# Mantenimiento
-make clean           # Limpiar todo (¡cuidado!)
-make backup          # Crear backup de datos
-make restore         # Restaurar desde backup
+# Manualmente
+kubectl delete namespace app1
+kubectl delete namespace app2
+kubectl delete namespace monitoring
 ```
 
-## 🔍 Casos de Uso de Monitoreo
+## 📁 Estructura del Proyecto
 
-### 1. Análisis de Errores
+```
+├── Makefile                    # Comandos unificados
+├── monitoring/                 # Stack central de monitoreo
+│   ├── dashboards/            # Dashboards preconfigurados
+│   ├── prometheus.yaml        # Configuración Prometheus
+│   ├── grafana.yaml          # Configuración Grafana
+│   ├── loki.yaml             # Configuración Loki
+│   ├── tempo.yaml            # Configuración Tempo
+│   └── alertmanager.yaml     # Configuración Alertmanager
+├── apps/
+│   ├── app1/                  # Aplicación Go
+│   │   ├── cmd/
+│   │   │   ├── app1/         # Código aplicación principal
+│   │   │   └── traffic-generator/  # Generador de tráfico
+│   │   ├── docker/           # Dockerfiles
+│   │   └── k8s/             # Manifests Kubernetes
+│   └── app2/                 # Aplicación Python FastAPI
+│       ├── src/             # Código fuente Python
+│       ├── docker/          # Dockerfiles
+│       └── k8s/            # Manifests Kubernetes
+├── clusters/
+│   ├── cluster1/            # Infraestructura cluster1
+│   └── cluster2/            # Infraestructura cluster2
+└── logs/                   # Logs de despliegue (generados automáticamente)
+```
+
+## 📋 Comandos Disponibles
+
+### Comandos Principales
 ```bash
-# Ver errores en tiempo real por línea de comandos
-make logs-service SERVICE=user-service | grep ERROR
-
-# En Grafana dashboard "E-commerce Lab - Dashboard Completo":
-# - Revisar panel "Top Errores y Warnings del Sistema"
-# - Filtrar por servicio en panel "Estado de Servicios E-commerce"
-# - Ver correlación con trace IDs en "Stream de Eventos de Negocio"
-# - Analizar códigos HTTP en panel "Códigos de Respuesta HTTP"
+make help          # Ver todos los comandos disponibles
+make deploy        # Despliegue completo con logging
+make clean         # Limpiar todos los recursos
+make status        # Estado básico de pods
+make check         # Verificación completa
 ```
 
-### 2. Análisis de Trazas Distribuidas
+### Build de Aplicaciones
 ```bash
-# En el dashboard "E-commerce Lab - Dashboard Completo":
-# - Revisar sección "Traces Más Lentas" para identificar cuellos de botella
-# - Hacer clic en cualquier trace para análisis detallado en Tempo
-# - TraceQL queries útiles en Tempo:
-{service.name="order-service"} && {span.name="create_order"}
-{service.name="user-service"} && duration > 500ms
-{error=true}
+make build         # Construir todas las imágenes
+make build-app1    # Solo app1
+make build-app2    # Solo app2
 ```
 
-### 3. Monitoreo de Métricas de Negocio
+### Componentes Individuales
 ```bash
-# En sección "Métricas de Negocio - Eventos por Minuto":
-# - Monitorear tasa de logins y registros de usuarios
-# - Seguimiento de órdenes creadas por minuto
-# - Análisis de pagos procesados
-# - Stream de eventos en tiempo real con trace IDs para correlación
+make monitoring    # Solo stack de monitoreo
+make apps          # Solo aplicaciones
+make clusters      # Solo infraestructura de clusters
 ```
 
-### 4. Alertas y SLAs
-Los logs incluyen métricas para configurar alertas en:
-- Tasas de error > 5%
-- Latencia P95 > 2s
-- Fallos de pago > 10%
-- Servicios no disponibles
-
-## 🏗️ Estructura del Proyecto
-
-```
-monitoring-stack/
-├── services/                          # Microservicios Go
-│   ├── user-service/                 # Autenticación y usuarios
-│   ├── product-service/              # Catálogo e inventario
-│   ├── order-service/                # Órdenes y pagos
-│   └── traffic-generator/            # Generador de tráfico
-├── infrastructure/                    # Stack de observabilidad
-│   ├── grafana/
-│   │   ├── dashboards/               # E-commerce Lab Dashboard completo
-│   │   └── provisioning/             # Datasources automáticos (Loki + Tempo)
-│   ├── loki/                         # Configuración de agregación de logs
-│   └── tempo/                        # Configuración de trazas distribuidas
-├── docker-compose.yml                # Orquestación completa
-├── Makefile                          # Comandos de gestión
-└── README.md                         # Esta documentación
-```
-
-## 🔧 Configuración Avanzada
-
-### Variables de Entorno
+### Utilidades
 ```bash
-# En docker-compose.yml puedes ajustar:
-GF_SECURITY_ADMIN_PASSWORD=tu_password
-SERVICE_NAME=custom-service-name
+make logs          # Ver logs de despliegues
+make quick-deploy  # Despliegue rápido sin logging extenso
+make setup-logging # Crear directorio de logs
 ```
 
-### Personalizar Dashboards
-1. Accede a Grafana → Dashboards
-2. Duplica un dashboard existente
-3. Personaliza queries y visualizaciones
-4. Exporta como JSON para versionado
+## 🔧 Personalización
+
+### Agregar Nuevos Clusters
+
+1. Crear directorio `clusters/clusterX/`
+2. Copiar manifests de cluster existente
+3. Modificar namespaces y labels
+4. Actualizar configuración de Prometheus central
+
+### Modificar Intervalos de Scraping
+
+Editar `prometheus.yml` en cada Prometheus Agent:
+```yaml
+global:
+  scrape_interval: 15s  # Cambiar aquí
+```
 
 ### Ajustar Retención de Datos
+
+**Prometheus**:
 ```yaml
-# En infrastructure/loki/loki-config.yaml
-limits_config:
-  retention_period: 168h  # 7 días (ajustable)
+args:
+  - '--storage.tsdb.retention.time=200h'  # Cambiar aquí
 ```
 
-## 🚨 Troubleshooting
+**Loki**: Ver configuración en `loki.yml`
 
-### Servicios no inician
-```bash
-# Verificar puertos ocupados
-netstat -tulpn | grep -E ':(3000|3100|3200|808[1-3])'
+## 📚 Recursos Adicionales
 
-# Ver logs de inicio
-make logs-service SERVICE=grafana
-```
+- [Documentación de Prometheus](https://prometheus.io/docs/)
+- [Documentación de Grafana](https://grafana.com/docs/)
+- [OpenTelemetry](https://opentelemetry.io/)
+- [Loki](https://grafana.com/docs/loki/)
+- [Tempo](https://grafana.com/docs/tempo/)
 
-### Trazas no aparecen
-```bash
-# Verificar conectividad a Tempo
-curl http://localhost:3200/ready
+## 🐛 Solución de Problemas
 
-# Ver logs de servicios
-make logs | grep "tempo"
-```
-
-### Performance lenta
-```bash
-# Verificar recursos
-docker stats
-
-# Reducir retención de logs en Loki
-# Editar infrastructure/loki/loki-config.yaml
-```
-
-### Dashboards en blanco
-```bash
-# Verificar datasources
-curl http://localhost:3100/ready  # Loki
-curl http://localhost:3200/ready  # Tempo
-
-# Reiniciar Grafana
-docker compose restart grafana
-```
+Ver [CLAUDE.md](CLAUDE.md) para instrucciones detalladas de troubleshooting y configuración avanzada.

@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/part-of: prometheus-node-exporter
+    app.kubernetes.io/version: 1.6.1
+  name: node-exporter
+  namespace: app1
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/part-of: prometheus-node-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: exporter
+        app.kubernetes.io/name: node-exporter
+        app.kubernetes.io/part-of: prometheus-node-exporter
+        app.kubernetes.io/version: 1.6.1
+    spec:
+      containers:
+      - args:
+        - --web.listen-address=:9100
+        - --collector.disable-defaults
+        - --collector.cpu
+        - --collector.meminfo
+        - --collector.loadavg
+        - --collector.filesystem
+        - --collector.netstat
+        image: prom/node-exporter:v1.6.1
+        name: node-exporter
+        ports:
+        - containerPort: 9100
+          name: http-metrics
+        resources:
+          limits:
+            cpu: 250m
+            memory: 180Mi
+          requests:
+            cpu: 10m
+            memory: 24Mi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/part-of: prometheus-node-exporter
+    app.kubernetes.io/version: 1.6.1
+  name: node-exporter
+  namespace: app1
+spec:
+  clusterIP: None
+  ports:
+  - name: http-metrics
+    port: 9100
+    targetPort: http-metrics
+  selector:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/part-of: prometheus-node-exporter
